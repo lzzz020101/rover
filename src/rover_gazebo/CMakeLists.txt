@@ -10,6 +10,16 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(gazebo_ros_pkgs REQUIRED)
 
+# 安装 launch 文件夹
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+# 安装 worlds 文件夹 (以后用)
+install(DIRECTORY worlds
+  DESTINATION share/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

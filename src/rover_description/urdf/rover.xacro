@@ -1,0 +1,333 @@
+<?xml version="1.0"?>
+<robot name="rover" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <!-- ================= 1. 参数定义 ================= -->
+    <xacro:property name="length_wheel" value="0.05" />
+    <xacro:property name="radius_wheel" value="0.09" />
+    <xacro:property name="PI" value="3.1415926"/>
+    
+    <!-- 车身尺寸 -->
+    <xacro:property name="body_len" value="0.4"/>
+    <xacro:property name="body_width" value="0.25"/>
+    <xacro:property name="body_height" value="0.13"/>
+    
+    <!-- 轮子位置参数 -->
+    <xacro:property name="wheel_offset_x" value="0.15"/> 
+    <xacro:property name="wheel_offset_y" value="0.16"/> 
+
+    <!-- 摩擦力 (0.2 保证能转向) -->
+    <xacro:property name="wheel_mu" value="0.2"/>
+
+    <!-- ================= 2. 惯性矩阵计算 ================= -->
+    <xacro:macro name="default_inertial" params="mass">
+        <inertial>
+            <mass value="${mass}" />
+            <inertia ixx="${mass/12*(body_width*body_width + body_height*body_height)}" ixy="0.0" ixz="0.0" 
+                     iyy="${mass/12*(body_len*body_len + body_height*body_height)}" iyz="0.0" 
+                     izz="${mass/12*(body_len*body_len + body_width*body_width)}" />
+        </inertial>
+    </xacro:macro>
+
+    <xacro:macro name="wheel_inertial" params="mass">
+        <inertial>
+            <mass value="${mass}" />
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </xacro:macro>
+
+    <!-- ================= 3. 机器人主体 ================= -->
+
+    <!-- Base Footprint -->
+    <link name="base_footprint">
+        <visual>
+            <geometry>
+                <box size="0.001 0.001 0.001"/>
+            </geometry>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+        </visual>
+        <xacro:default_inertial mass="0.0001"/>
+    </link>
+
+    <joint name="base_footprint_joint" type="fixed">
+        <origin xyz="0 0 0.09" /> 
+        <parent link="base_footprint" />
+        <child link="base_link" />
+    </joint>
+
+    <!-- Base Link -->
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <box size="${body_len} ${body_width} ${body_height}"/>
+            </geometry>
+            <origin rpy="0 0 0" xyz="0 0 0"/>  
+            <material name="white">
+                <color rgba="0.8 0.8 0.8 1"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${body_len} ${body_width} ${body_height}"/>
+            </geometry>
+            <origin rpy="0 0 0" xyz="0 0 0"/>  
+        </collision>
+        <xacro:default_inertial mass="5.0"/>    
+    </link>
+
+    <!-- ================= 4. 四个轮子 ================= -->
+
+    <!-- [1] 前左轮 (Front Left) -->
+    <link name="wheel_FL">
+        <visual>
+            <geometry><cylinder length="${length_wheel}" radius="${radius_wheel}"/></geometry>
+            <material name="black"><color rgba="0.1 0.1 0.1 1"/></material>
+        </visual>
+        <collision>
+            <geometry><cylinder length="${length_wheel}" radius="${radius_wheel}"/></geometry>
+        </collision>
+        <visual>
+            <geometry><cylinder length="0.06" radius="0.015"/></geometry>
+            <origin rpy="0 0 0" xyz="0 0 -0.03"/> 
+            <material name="grey"><color rgba="0.5 0.5 0.5 1"/></material>
+        </visual>
+        <mu1>${wheel_mu}</mu1>
+        <mu2>${wheel_mu}</mu2>
+        <xacro:wheel_inertial mass="0.5"/>
+    </link>
+
+    <!-- ⚠️ 关键修改：前轮改为 FIXED，解决 RViz 不显示问题 -->
+    <joint name="joint_FL" type="fixed">
+        <parent link="base_link"/>
+        <child link="wheel_FL"/>
+        <origin rpy="${-PI/2} 0 0" xyz="${wheel_offset_x} ${wheel_offset_y} -0.02"/>
+        <axis xyz="0 0 1" />
+    </joint>
+
+    <!-- [2] 前右轮 (Front Right) -->
+    <link name="wheel_FR">
+        <visual>
+            <geometry><cylinder length="${length_wheel}" radius="${radius_wheel}"/></geometry>
+            <material name="black"><color rgba="0.1 0.1 0.1 1"/></material>
+        </visual>
+        <collision>
+            <geometry><cylinder length="${length_wheel}" radius="${radius_wheel}"/></geometry>
+        </collision>
+        <visual>
+            <geometry><cylinder length="0.06" radius="0.015"/></geometry>
+            <origin rpy="0 0 0" xyz="0 0 0.03"/> 
+            <material name="grey"><color rgba="0.5 0.5 0.5 1"/></material>
+        </visual>
+        <mu1>${wheel_mu}</mu1>
+        <mu2>${wheel_mu}</mu2>
+        <xacro:wheel_inertial mass="0.5"/>
+    </link>
+
+    <!-- ⚠️ 关键修改：前轮改为 FIXED -->
+    <joint name="joint_FR" type="fixed">
+        <parent link="base_link"/>
+        <child link="wheel_FR"/>
+        <origin rpy="${-PI/2} 0 0" xyz="${wheel_offset_x} -${wheel_offset_y} -0.02"/>
+        <axis xyz="0 0 1" />
+    </joint>
+
+    <!-- [3] 后左轮 (Rear Left) - 驱动轮 -->
+    <link name="wheel_RL">
+        <visual>
+            <geometry><cylinder length="${length_wheel}" radius="${radius_wheel}"/></geometry>
+            <material name="black"><color rgba="0.1 0.1 0.1 1"/></material>
+        </visual>
+        <collision>
+            <geometry><cylinder length="${length_wheel}" radius="${radius_wheel}"/></geometry>
+        </collision>
+        <visual>
+            <geometry><cylinder length="0.06" radius="0.015"/></geometry>
+            <origin rpy="0 0 0" xyz="0 0 -0.03"/> 
+            <material name="grey"><color rgba="0.5 0.5 0.5 1"/></material>
+        </visual>
+        <mu1>${wheel_mu}</mu1>
+        <mu2>${wheel_mu}</mu2>
+        <xacro:wheel_inertial mass="0.5"/>
+    </link>
+
+    <!-- 保持 continuous，因为它是驱动轮 -->
+    <joint name="joint_RL" type="continuous">
+        <parent link="base_link"/>
+        <child link="wheel_RL"/>
+        <origin rpy="${-PI/2} 0 0" xyz="-${wheel_offset_x} ${wheel_offset_y} -0.02"/>
+        <axis xyz="0 0 1" />
+    </joint>
+
+    <!-- [4] 后右轮 (Rear Right) - 驱动轮 -->
+    <link name="wheel_RR">
+        <visual>
+            <geometry><cylinder length="${length_wheel}" radius="${radius_wheel}"/></geometry>
+            <material name="black"><color rgba="0.1 0.1 0.1 1"/></material>
+        </visual>
+        <collision>
+            <geometry><cylinder length="${length_wheel}" radius="${radius_wheel}"/></geometry>
+        </collision>
+        <visual>
+            <geometry><cylinder length="0.06" radius="0.015"/></geometry>
+            <origin rpy="0 0 0" xyz="0 0 0.03"/> 
+            <material name="grey"><color rgba="0.5 0.5 0.5 1"/></material>
+        </visual>
+        <mu1>${wheel_mu}</mu1>
+        <mu2>${wheel_mu}</mu2>
+        <xacro:wheel_inertial mass="0.5"/>
+    </link>
+
+    <!-- 保持 continuous，因为它是驱动轮 -->
+    <joint name="joint_RR" type="continuous">
+        <parent link="base_link"/>
+        <child link="wheel_RR"/>
+        <origin rpy="${-PI/2} 0 0" xyz="-${wheel_offset_x} -${wheel_offset_y} -0.02"/>
+        <axis xyz="0 0 1" />
+    </joint>
+
+
+    <!-- ================= 5. 传感器 ================= -->
+
+    <!-- IMU -->
+    <joint name="imu_joint" type="fixed">
+        <axis xyz="0 1 0" />
+        <origin xyz="0.0 0 0.08" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="imu_link"/>
+    </joint>
+
+    <link name="imu_link">
+        <visual>
+            <geometry><box size="0.05 0.05 0.02"/></geometry>
+            <material name="green"><color rgba="0 1 0 1"/></material>
+        </visual>
+        <inertial>
+            <mass value="0.01" />
+            <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+        </inertial>
+    </link>
+
+    <!-- 雷达支架 -->
+    <joint name="laserholder_joint" type="fixed">
+        <origin xyz="0.1 0.0 0.065" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="laserholder_link"/>
+    </joint>
+
+    <link name="laserholder_link">
+        <visual>
+            <geometry><cylinder length="0.1" radius="0.02"/></geometry>
+            <material name="green"><color rgba="0 1 0 1"/></material>
+            <origin rpy="0 0 0" xyz="0 0 0.05"/>
+        </visual>
+        <xacro:default_inertial mass="0.01"/>
+    </link>
+
+    <joint name="laser_joint" type="fixed">
+        <origin xyz="0.0 0.0 0.1" rpy="0 0 0"/>
+        <parent link="laserholder_link"/>
+        <child link="scan_link"/> 
+    </joint>
+
+    <link name="scan_link">
+        <visual>
+            <geometry><cylinder length="0.04" radius="0.04"/></geometry>
+            <material name="blue"><color rgba="0 0 1 1"/></material>
+        </visual>
+        <xacro:default_inertial mass="0.1"/>
+    </link>
+
+
+    <!-- ================= 6. Gazebo 插件 ================= -->
+
+    <gazebo>
+        <plugin name='diff_drive' filename='libgazebo_ros_diff_drive.so'>
+            <ros>
+                <namespace>/</namespace>
+                <remapping>cmd_vel:=cmd_vel</remapping>
+                <remapping>odom:=odom</remapping>
+            </ros>
+
+            <!-- 驱动后轮 -->
+            <left_joint>joint_RL</left_joint>
+            <right_joint>joint_RR</right_joint>
+
+            <wheel_separation>${wheel_offset_y * 2}</wheel_separation>
+            <wheel_diameter>${radius_wheel * 2}</wheel_diameter>
+            
+            <max_wheel_torque>100</max_wheel_torque>
+            <max_wheel_acceleration>2.0</max_wheel_acceleration>
+
+            <publish_odom>true</publish_odom>
+            <publish_odom_tf>true</publish_odom_tf>
+            <publish_wheel_tf>true</publish_wheel_tf>
+
+            <odometry_frame>odom</odometry_frame>
+            <robot_base_frame>base_footprint</robot_base_frame>
+        </plugin>
+    </gazebo>
+
+    <gazebo reference="scan_link">
+        <sensor name="lidar" type="ray">
+            <always_on>true</always_on>
+            <visualize>false</visualize> 
+            <update_rate>10</update_rate>
+            <ray>
+                <scan>
+                    <horizontal>
+                        <samples>360</samples>
+                        <resolution>1.000000</resolution>
+                        <min_angle>0.000000</min_angle>
+                        <max_angle>6.280000</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.120000</min>
+                    <max>8.0</max>
+                    <resolution>0.015000</resolution>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </ray>
+            <plugin name="scan" filename="libgazebo_ros_ray_sensor.so">
+                <ros>
+                    <remapping>~/out:=scan</remapping>
+                </ros>
+                <output_type>sensor_msgs/LaserScan</output_type>
+                <frame_name>scan_link</frame_name>
+            </plugin>
+        </sensor>
+    </gazebo>
+
+    <gazebo reference="imu_link">
+        <gravity>true</gravity>
+        <sensor name="imu_sensor" type="imu">
+            <always_on>true</always_on>
+            <update_rate>100</update_rate>
+            <visualize>true</visualize>
+            <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+                <topicName>imu</topicName>
+                <bodyName>imu_link</bodyName>
+                <updateRateHz>100.0</updateRateHz>
+                <gaussianNoise>0.0</gaussianNoise>
+                <xyzOffset>0 0 0</xyzOffset>
+                <rpyOffset>0 0 0</rpyOffset>
+                <frameName>imu_link</frameName>
+                <initialOrientationAsReference>false</initialOrientationAsReference>
+                <ros>
+                    <namespace>/</namespace>
+                    <remapping>~/out:=imu/data</remapping>
+                </ros>
+            </plugin>
+        </sensor>
+    </gazebo>
+
+    <gazebo reference="base_link"><material>Gazebo/White</material></gazebo>
+    <gazebo reference="wheel_FL"><material>Gazebo/Black</material></gazebo>
+    <gazebo reference="wheel_FR"><material>Gazebo/Black</material></gazebo>
+    <gazebo reference="wheel_RL"><material>Gazebo/Black</material></gazebo>
+    <gazebo reference="wheel_RR"><material>Gazebo/Black</material></gazebo>
+
+</robot>

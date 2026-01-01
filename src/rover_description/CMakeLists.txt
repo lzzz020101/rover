@@ -11,6 +11,16 @@ find_package(rclcpp REQUIRED)
 find_package(urdf REQUIRED)
 find_package(xacro REQUIRED)
 
+# 在 rover_description 的 CMakeLists.txt 里添加：
+install(DIRECTORY urdf
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(DIRECTORY meshes
+  DESTINATION share/${PROJECT_NAME}
+)
+
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

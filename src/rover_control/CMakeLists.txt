@@ -13,6 +13,16 @@ find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 
+# 添加可执行文件
+add_executable(motion_control_node src/motion_control_node.cpp)
+ament_target_dependencies(motion_control_node rclcpp geometry_msgs)
+
+# 安装
+install(TARGETS
+  motion_control_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
