@@ -12,14 +12,30 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(Eigen3 REQUIRED)
+
+
 
 # 添加可执行文件
 add_executable(motion_control_node src/motion_control_node.cpp)
 ament_target_dependencies(motion_control_node rclcpp geometry_msgs)
 
+add_executable(path_tracking_node src/path_tracking_node.cpp)
+ament_target_dependencies(
+  path_tracking_node 
+  rclcpp 
+  geometry_msgs
+  nav_msgs
+  tf2)
+  
+  target_include_directories(path_tracking_node PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${EIGEN3_INCLUDE_DIR}  # 核心：添加Eigen头文件路径
+)
 # 安装
 install(TARGETS
   motion_control_node
+  path_tracking_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

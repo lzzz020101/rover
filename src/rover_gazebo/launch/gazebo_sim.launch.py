@@ -53,6 +53,7 @@ def generate_launch_description():
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
             get_package_share_directory('gazebo_ros'), 'launch', 'gazebo.launch.py')]),
+            launch_arguments={'world': os.path.join(gazebo_pkg_share,'worlds','my_room.world')}.items()
     )
 
     # Spawn Entity: 把机器人“生”在 Gazebo 里
@@ -60,22 +61,24 @@ def generate_launch_description():
         package='gazebo_ros',
         executable='spawn_entity.py',
         arguments=['-topic', 'robot_description',
-                   '-entity', 'my_rover'],
+                   '-entity', 'my_rover'
+                ],
         output='screen'
     )
     
-    # Rviz2 (可选，方便调试)
+    # Rviz2
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz2',
         output='screen',
-        # arguments=['-d', os.path.join(pkg_share, 'rviz', 'view_robot.rviz')], # 先注释掉，因为还没配置文件
+        parameters=[{'use_sim_time': True}], 
+        # arguments=['-d', ...], 
     )
 
     return LaunchDescription([
         gazebo,
         node_robot_state_publisher,
         spawn_entity,
-        # rviz_node 
+        rviz_node 
     ])

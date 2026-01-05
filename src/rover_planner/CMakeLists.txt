@@ -5,39 +5,53 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# 1. 寻找依赖
+# 1. 寻找依赖 (关键修正：补全了 nav_msgs 和 geometry_msgs)
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED) # 虽然测试不用，但包可能需要
-find_package(Eigen3 REQUIRED) # 必须有！
+find_package(rclcpp REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(nav_msgs REQUIRED)      
+find_package(geometry_msgs REQUIRED) 
 
 include_directories(
   include
   ${EIGEN3_INCLUDE_DIR}
 )
+install(
+  DIRECTORY maps
+  DESTINATION share/${PROJECT_NAME}
+)
 
-# 2. 编译 A* 核心库 (把你的 astar.cpp 编译成库，方便调用)
-# 假设你的实现文件是 src/astar.cpp
+# 2. 编译 A* 核心库
 add_library(astar_lib src/astar.cpp)
 target_link_libraries(astar_lib Eigen3::Eigen)
 
-# 3. 编译测试程序 (Test Node)
-add_executable(test_astar src/test_astar.cpp)
-target_link_libraries(test_astar 
+
+# 4. 编译规划器节点 (ROS2 Node)
+add_executable(rover_planner_node src/rover_planner_node.cpp)
+ament_target_dependencies(rover_planner_node 
+  rclcpp 
+  nav_msgs 
+  geometry_msgs
+)
+target_link_libraries(
+  rover_planner_node 
   astar_lib 
   Eigen3::Eigen
 )
 
-# 安装指令 (可选，为了能在 install 里找到)
+# 5. 安装指令
 install(TARGETS 
-  test_astar
+  rover_planner_node
   DESTINATION lib/${PROJECT_NAME}
 )
+
 install(TARGETS 
   astar_lib
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+
 install(DIRECTORY include/
   DESTINATION include/
 )
