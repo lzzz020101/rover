@@ -41,10 +41,15 @@ private:
     double lookahead_dist_;
     double target_speed_;
 
+    // ===== [MOD] 最近路径点索引，避免反复从头找 =====
+    size_t nearest_index_ = 0;
+    // ===== [MOD END] =====
+
     // path 回调函数
     void pathCallback(const Path::SharedPtr msg)
     {
         global_path_ = *msg;
+        nearest_index_ = 0; // ===== [MOD] 新路径进来，索引重置 =====
         RCLCPP_INFO(this->get_logger(), "Received Path with %zu points", global_path_.poses.size());
     }
 
@@ -55,7 +60,7 @@ private:
 
         if (global_path_.poses.empty())
         {
-            // RCLCPP_WARN(this->get_logger(), "全局路径无有效路径点，发布零速度");
+            RCLCPP_WARN(this->get_logger(), "全局路径无有效路径点，发布零速度");
             vel_msg.linear.x = 0.0;
             vel_msg.angular.z = 0.0;
             vel_pub_->publish(vel_msg);
@@ -66,45 +71,45 @@ private:
         // 取出坐标
         double curr_x = msg->pose.pose.position.x;
         double curr_y = msg->pose.pose.position.y;
-        // // 取出四元数
-        // Eigen::Quaternion q(
-        //     msg->pose.pose.orientation.w,
-        //     msg->pose.pose.orientation.x,
-        //     msg->pose.pose.orientation.y,
-        //     msg->pose.pose.orientation.z);
 
-        // Eigen::Matrix3d rotation_matrix = q.toRotationMatrix();
-        // Eigen::Vector3d euler_angles;
-        // // Z-Y-X 顺序
-        // euler_angles = rotation_matrix.eulerAngles(2, 1, 0);
-
-        // double curr_yaw = euler_angles[0];
         // 1. 取出四元数
         double qx = msg->pose.pose.orientation.x;
         double qy = msg->pose.pose.orientation.y;
         double qz = msg->pose.pose.orientation.z;
         double qw = msg->pose.pose.orientation.w;
 
-        // 2. 手搓公式 (这是最稳的，绝对不会错)
-        double siny_cosp = 2.0 * (qw * qz + qx * qy);
-        double cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz);
-        double curr_yaw = std::atan2(siny_cosp, cosy_cosp);
+        // 2. 公式计算
+        double curr_yaw = std::atan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz));
 
-        // 寻找预瞄点 (Lookahead Point)
+        // 3. 车头方向向量
+        // 用于判断下一个路径点是不是在车头前方
+        double heading_x = std::cos(curr_yaw);
+        double heading_y = std::sin(curr_yaw);
+
+        // 寻找预瞄点
         double goal_x = curr_x;
         double goal_y = curr_y;
         bool found_target = false;
 
-        for (const auto &pose : global_path_.poses)
+        // 寻找路径点
+        for (size_t i = nearest_index_; i < global_path_.poses.size(); i++)
         {
+            const auto &pose = global_path_.poses[i];
+
             double dx = pose.pose.position.x - curr_x;
             double dy = pose.pose.position.y - curr_y;
-            // hypoy 用于计算第三边的长度
+
+            // 判断是否在车前方（点积）
+            double dot = heading_x * dx + heading_y * dy;
+            if (dot < 0.0)
+                continue;
+
             double dist = std::hypot(dx, dy);
             if (dist > lookahead_dist_)
             {
                 goal_x = pose.pose.position.x;
                 goal_y = pose.pose.position.y;
+                nearest_index_ = i; // 更新最近索引
                 found_target = true;
                 break;
             }

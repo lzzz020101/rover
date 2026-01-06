@@ -20,7 +20,7 @@ public:
         RCLCPP_INFO(this->get_logger(), "rover planner node is ready!");
 
         astar_.setOccupancyCallback([this](const Eigen::Vector2i &idx) -> bool
-                                    { return this->isOccupiced(idx); });
+                                    { return this->isOccupied(idx); });
 
         auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).transient_local();
         map_sub_ = this->create_subscription<OccupancyGrid>("/map", qos, std::bind(&RoverPlanner::mapCallback, this, _1));
@@ -121,21 +121,48 @@ private:
     }
 
     // 障碍物判断
-    bool isOccupiced(const Eigen::Vector2i &idx)
+    bool isOccupied(const Eigen::Vector2i &idx)
     {
         if (!map_received_)
             return true;
+
         int width = stored_map_.info.width;
         int height = stored_map_.info.height;
+        double resolution = stored_map_.info.resolution;
 
-        if (idx.x() < 0 || idx.x() >= width || idx.y() < 0 || idx.y() >= height)
-            return true;
+        // 1. 定义膨胀半径 (安全距离)
+        double robot_radius = 0.35;
 
-        int index = idx.x() + idx.y() * width;
-        int8_t data = stored_map_.data[index];
-        if (data > 50 || data == -1)
-            return true;
-        return false;
+        // 计算要检查多少个格子 (半径 / 分辨率)
+        int inflation_grid = std::ceil(robot_radius / resolution);
+
+        // 2. 遍历周围的格子
+        for (int x_offset = -inflation_grid; x_offset <= inflation_grid; x_offset++)
+        {
+            for (int y_offset = -inflation_grid; y_offset <= inflation_grid; y_offset++)
+            {
+                int check_x = idx.x() + x_offset;
+                int check_y = idx.y() + y_offset;
+
+                // 越界检查
+                if (check_x < 0 || check_x >= width || check_y < 0 || check_y >= height)
+                {
+                    return true;
+                }
+
+                // 查表
+                int index = check_y * width + check_x;
+                int8_t data = stored_map_.data[index];
+
+                // 只要膨胀范围内有一个障碍物，中心点就不能走！
+                if (data > 50 || data == -1)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false; // 周围一圈都安全，可以通过
     }
 };
 
