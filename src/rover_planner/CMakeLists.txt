@@ -21,9 +21,13 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
-# 2. 编译 A* 核心库
+# 2. 编译 A* 库
 add_library(astar_lib src/astar.cpp)
 target_link_libraries(astar_lib Eigen3::Eigen)
+
+# 3. 编译 Bspline 库
+add_library(bspline_lib src/bspline_optimizer.cpp)
+target_link_libraries(bspline_lib Eigen3::Eigen)
 
 
 # 4. 编译规划器节点 (ROS2 Node)
@@ -36,6 +40,7 @@ ament_target_dependencies(rover_planner_node
 target_link_libraries(
   rover_planner_node 
   astar_lib 
+  bspline_lib
   Eigen3::Eigen
 )
 
@@ -47,6 +52,7 @@ install(TARGETS
 
 install(TARGETS 
   astar_lib
+  bspline_lib
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin

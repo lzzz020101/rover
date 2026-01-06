@@ -6,6 +6,7 @@
 #include "rover_planner/astar.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "rover_planner/bspline_optimizer.hpp"
 
 using geometry_msgs::msg::PoseStamped;
 using nav_msgs::msg::OccupancyGrid;
@@ -34,6 +35,7 @@ public:
 
 private:
     rover_planner::AStar astar_;
+    rover_planner::BsplineOptimizer bspline_optimizer_;
     rclcpp::Subscription<OccupancyGrid>::SharedPtr map_sub_;
     bool map_received_ = false;
     OccupancyGrid stored_map_;
@@ -92,7 +94,23 @@ private:
         if (astar_.search(current_pose_, goal_pose))
         {
             auto path_points = astar_.getPath();
-            publishPath(path_points);
+            // 1. 获取原始路径
+            auto raw_path = astar_.getPath();
+            std::vector<Eigen::Vector2d> smooth_path;
+
+            // 2. B样条优化 (至少需要4个点)
+            if (raw_path.size() >= 4)
+            {
+                bspline_optimizer_.optimize(raw_path, smooth_path, 20); // 20倍插值
+                RCLCPP_INFO(this->get_logger(), "Path Smoothed! Raw: %zu -> Smooth: %zu", raw_path.size(), smooth_path.size());
+            }
+            else
+            {
+                smooth_path = raw_path; // 点太少，不优化
+                RCLCPP_WARN(this->get_logger(), "Path too short for B-Spline, using raw path.");
+            }
+            // 3. 发布
+            publishPath(smooth_path);
         }
         else
         {
@@ -131,7 +149,7 @@ private:
         double resolution = stored_map_.info.resolution;
 
         // 1. 定义膨胀半径 (安全距离)
-        double robot_radius = 0.35;
+        double robot_radius = 0.50;
 
         // 计算要检查多少个格子 (半径 / 分辨率)
         int inflation_grid = std::ceil(robot_radius / resolution);

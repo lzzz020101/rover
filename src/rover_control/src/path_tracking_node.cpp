@@ -16,8 +16,8 @@ public:
     PathTracking() : Node("path_tracking_node")
     {
         // 声明预瞄距离和目标速度
-        this->declare_parameter("lookahead_dist", 0.5);
-        this->declare_parameter("target_speed", 0.5);
+        this->declare_parameter("lookahead_dist", 0.7);
+        this->declare_parameter("target_speed", 0.3);
 
         // 获取参数
         this->get_parameter("lookahead_dist", lookahead_dist_);
@@ -87,8 +87,8 @@ private:
         // double heading_y = std::sin(curr_yaw);
 
         // 取出路径点的前两个点，初步判断一下路径的大致方向
-        double path_dx = global_path_.poses[1].pose.position.x - global_path_.poses[0].pose.position.x;
-        double path_dy = global_path_.poses[1].pose.position.y - global_path_.poses[0].pose.position.y;
+        double path_dx = global_path_.poses[10].pose.position.x - global_path_.poses[0].pose.position.x;
+        double path_dy = global_path_.poses[10].pose.position.y - global_path_.poses[0].pose.position.y;
         double path_yaw = std::atan2(path_dy, path_dx);
         // 2. 计算车头与路径的夹角误差
         double yaw_diff = path_yaw - curr_yaw;
@@ -98,8 +98,9 @@ private:
         while (yaw_diff < -M_PI)
             yaw_diff += 2.0 * M_PI;
 
-        // 3. 判断是否需要原地掉头 (比如误差 > 90度)
-        if (std::abs(yaw_diff) > M_PI / 6.0)
+        double current_linear_vel = msg->twist.twist.linear.x;
+        // // 3. 判断是否需要原地掉头 (误差 > 30度)
+        if ((std::abs(yaw_diff) > M_PI / 2.0) && (std::abs(current_linear_vel) < 0.1))
         {
             Twist vel;
             vel.linear.x = 0.0;

@@ -136,7 +136,7 @@
         <axis xyz="0 0 1" />
     </joint>
 
-    <!-- [4] 后右轮 (Rear Right) - 驱动轮 (你漏了这部分！帮你补上了) -->
+    <!-- [4] 后右轮 (Rear Right) - 驱动轮 -->
     <link name="wheel_RR">
         <visual>
             <geometry><cylinder length="${length_wheel}" radius="${radius_wheel}"/></geometry>
@@ -171,7 +171,7 @@
     </link>
 
     <joint name="laserholder_joint" type="fixed">
-        <origin xyz="0.1 0.0 0.065" rpy="0 0 0"/> <!-- 装在车头上方 -->
+        <origin xyz="0.1 0.0 0.065" rpy="0 0 0"/>
         <parent link="base_link"/>
         <child link="laserholder_link"/>
     </joint>
@@ -231,11 +231,13 @@
     <!-- ================= 6. Gazebo 物理属性 & 插件 ================= -->
 
     <gazebo reference="wheel_FL">
-        <mu1>0.001</mu1> <mu2>0.001</mu2> <!-- 像冰一样滑 -->
+        <mu1>0.5</mu1> 
+        <mu2>0.001</mu2>
         <material>Gazebo/Black</material>
     </gazebo>
     <gazebo reference="wheel_FR">
-        <mu1>0.001</mu1> <mu2>0.001</mu2>
+        <mu1>0.5</mu1> 
+        <mu2>0.001</mu2>
         <material>Gazebo/Black</material>
     </gazebo>
 
