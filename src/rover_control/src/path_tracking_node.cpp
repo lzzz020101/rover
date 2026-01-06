@@ -83,9 +83,30 @@ private:
 
         // 3. 车头方向向量
         // 用于判断下一个路径点是不是在车头前方
-        double heading_x = std::cos(curr_yaw);
-        double heading_y = std::sin(curr_yaw);
+        // double heading_x = std::cos(curr_yaw);
+        // double heading_y = std::sin(curr_yaw);
 
+        // 取出路径点的前两个点，初步判断一下路径的大致方向
+        double path_dx = global_path_.poses[1].pose.position.x - global_path_.poses[0].pose.position.x;
+        double path_dy = global_path_.poses[1].pose.position.y - global_path_.poses[0].pose.position.y;
+        double path_yaw = std::atan2(path_dy, path_dx);
+        // 2. 计算车头与路径的夹角误差
+        double yaw_diff = path_yaw - curr_yaw;
+        // 归一化到 -PI ~ PI
+        while (yaw_diff > M_PI)
+            yaw_diff -= 2.0 * M_PI;
+        while (yaw_diff < -M_PI)
+            yaw_diff += 2.0 * M_PI;
+
+        // 3. 判断是否需要原地掉头 (比如误差 > 90度)
+        if (std::abs(yaw_diff) > M_PI / 6.0)
+        {
+            Twist vel;
+            vel.linear.x = 0.0;
+            vel.angular.z = (yaw_diff > 0) ? 0.5 : -0.5;
+            vel_pub_->publish(vel);
+            return;
+        }
         // 寻找预瞄点
         double goal_x = curr_x;
         double goal_y = curr_y;
@@ -98,11 +119,6 @@ private:
 
             double dx = pose.pose.position.x - curr_x;
             double dy = pose.pose.position.y - curr_y;
-
-            // 判断是否在车前方（点积）
-            double dot = heading_x * dx + heading_y * dy;
-            if (dot < 0.0)
-                continue;
 
             double dist = std::hypot(dx, dy);
             if (dist > lookahead_dist_)
