@@ -17,7 +17,7 @@ public:
     {
         // 声明预瞄距离和目标速度
         this->declare_parameter("lookahead_dist", 0.7);
-        this->declare_parameter("target_speed", 0.3);
+        this->declare_parameter("target_speed", 0.5);
 
         // 获取参数
         this->get_parameter("lookahead_dist", lookahead_dist_);
@@ -41,15 +41,15 @@ private:
     double lookahead_dist_;
     double target_speed_;
 
-    // ===== [MOD] 最近路径点索引，避免反复从头找 =====
+    // 最近路径点索引，避免反复从头找
     size_t nearest_index_ = 0;
-    // ===== [MOD END] =====
+
 
     // path 回调函数
     void pathCallback(const Path::SharedPtr msg)
     {
         global_path_ = *msg;
-        nearest_index_ = 0; // ===== [MOD] 新路径进来，索引重置 =====
+        nearest_index_ = 0; // 新路径进来，索引重置
         RCLCPP_INFO(this->get_logger(), "Received Path with %zu points", global_path_.poses.size());
     }
 
